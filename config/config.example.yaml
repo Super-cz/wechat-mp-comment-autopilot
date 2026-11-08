@@ -10,7 +10,7 @@ my_account:
   target_audience_description: "对前沿AI应用、自动化脚本、工作流提效、独立开发以及自媒体创业感兴趣的年轻人和知识工作者。"
   tone_style: "专业严谨、洞见深刻、兼具幽默金句感，绝不发硬广"
 
-# 2. 对标监控大号列表 (在这些公众号发文时第一时间响应)
+# 2. 定向监控对标大号列表 (优先级 1：第一时间抢占首发15分钟内前排留言)
 monitored_accounts:
   - name: "对标大号A"
     biz_id: "MzI1XXXXXX=="
@@ -19,7 +19,15 @@ monitored_accounts:
     biz_id: "MzA4XXXXXX=="
     priority: "medium"
 
-# 3. 监控与筛选阈值设置
+# 3. 第三方行业数据平台配置 (优先级 2：监测全行业上升期爆文)
+third_party_api:
+  enabled: true
+  provider: "newrank" # 可选: newrank (新榜), xigua (西瓜数据), qingbo (清博)
+  endpoint: "https://api.newrank.cn/v1/articles/hot"
+  api_key: "your-third-party-api-key"
+  category: "科技互联网"
+
+# 4. 监控与筛选阈值设置
 evaluation_rules:
   # 受众重叠度最低得分 (0 - 100)
   min_audience_relevance_score: 70
@@ -42,28 +50,27 @@ evaluation_rules:
     - "医疗事故"
     - "投资暴富"
 
-# 4. LLM 留言生成模型配置
+# 5. LLM 留言生成模型配置
 llm:
   provider: "openai" # 支持 openai, deepseek, moonshot 等兼容接口
   base_url: "https://api.deepseek.com/v1" # 或 https://api.openai.com/v1
   api_key: "sk-xxxxxxxxxxxxxxxxxxxxxxxx"
   model: "deepseek-chat" # 或 gpt-4o, gpt-4o-mini
   temperature: 0.7
-  # 一次性生成的候选神评数量供挑选
   candidate_count: 3
 
-# 5. 执行模式设置
+# 6. 执行模式设置
 execution:
-  # 可选模式: "copilot" (推荐：半自动推送到飞书/企微审核), "auto_adb" (安卓ADB全自动), "dry_run" (仅测试生成不提交)
+  # 当前策略: "copilot" (智能副驾模式：零封号风险，推送到飞书/企微/移动端一键确认发表)
   mode: "copilot"
   
-  # 每日最大留言上限 (严格防风控)
-  max_daily_comments: 15
-  # 两次留言之间的最小随机冷却时间（秒）
-  min_interval_seconds: 180
+  # 每日最大提醒推送上限
+  max_daily_comments: 20
+  # 最小推送间隔（秒）
+  min_interval_seconds: 120
 
-# 6. 通知渠道 (用于 Copilot 模式将候选神评推送到移动端一键复制或审核)
+# 7. 通知渠道 (用于 Copilot 模式将候选神评推送到移动端一键复制或审核)
 notifications:
   feishu_webhook: "https://open.feishu.cn/open-apis/bot/v2/hook/xxxxxx"
-  wechat_work_webhook: ""
+  wechat_work_webhook: "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxxxxx"
   serverchan_sendkey: ""

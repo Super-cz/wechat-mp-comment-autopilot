@@ -8,6 +8,7 @@ from core.storage.db import Database
 from core.evaluator.audience_matcher import AudienceMatcher
 from core.generator.comment_generator import CommentGenerator
 from core.monitor.target_account_monitor import TargetAccountMonitor
+from core.monitor.third_party_monitor import ThirdPartyRankMonitor
 from core.executor.copilot_notifier import CopilotNotifier
 from core.executor.adb_executor import AdbExecutor
 
@@ -22,12 +23,18 @@ def load_config() -> dict:
 def run_pipeline(mode: str = "copilot"):
     print("=" * 65)
     print("🚀 微信公众号文章高权重引流与智能神评流水线启动")
-    print(f"⚙️ 当前运行模式: {mode}")
+    print(f"⚙️ 当前运行模式: {mode} (智能副驾巡航模式)")
     print("=" * 65)
 
     config = load_config()
     db = Database()
-    monitor = TargetAccountMonitor(config)
+    
+    # 双轨发现源：1. 核心对标大号列表 + 2. 第三方行业爆文榜单
+    monitors = [
+        TargetAccountMonitor(config),
+        ThirdPartyRankMonitor(config),
+    ]
+    
     evaluator = AudienceMatcher(config)
     generator = CommentGenerator(config)
 
@@ -38,16 +45,19 @@ def run_pipeline(mode: str = "copilot"):
 
     # 检查每日配额
     daily_count = db.get_daily_comment_count()
-    max_daily = config.get("execution", {}).get("max_daily_comments", 15)
+    max_daily = config.get("execution", {}).get("max_daily_comments", 20)
     if daily_count >= max_daily:
-        print(f"🛑 今日留言次数 ({daily_count}) 已达安全上限 ({max_daily})，触发风控休眠机制。")
+        print(f"🛑 今日处理/推送次数 ({daily_count}) 已达安全上限 ({max_daily})，触发保护休眠。")
         return
 
-    # 1. 抓取最新文章
-    articles = monitor.fetch_recent_articles()
-    print(f"📡 监控到 {len(articles)} 篇候选文章，开始逐一评估...")
+    # 1. 抓取文章 (汇总两路数据源)
+    all_articles = []
+    for m in monitors:
+        all_articles.extend(m.fetch_recent_articles())
 
-    for article in articles:
+    print(f"📡 双轨监控源共汇总到 {len(all_articles)} 篇候选文章，开始受众契合度分析...")
+
+    for article in all_articles:
         url = article["url"]
         title = article["title"]
 
@@ -58,15 +68,15 @@ def run_pipeline(mode: str = "copilot"):
         # 2. 受众契合度与热度评估
         passed, score, heat_level, reason = evaluator.evaluate_article(article)
         print(f"\n📊 评估结果: 【{title}】")
-        print(f"   得分: {score}/100 | 热度等级: {heat_level} | 契合度判断: {'✅ 通过' if passed else '❌ 未达标'}")
+        print(f"   来源: {article.get('account_name')} | 得分: {score}/100 | 热度等级: {heat_level} | 契合度: {'✅ 达标通过' if passed else '❌ 未达标'}")
         print(f"   原因: {reason}")
 
         if not passed:
-            print("   跳过非目标受众文章。")
+            print("   ⏩ 过滤非目标赛道文章。")
             continue
 
         # 3. 大模型高情商神评生成
-        print("🧠 正在调用大模型生成多策略候选神评...")
+        print("🧠 正在调用大模型生成多维度高权重神评...")
         comments = generator.generate_comments(article)
 
         # 4. 存储到数据库
@@ -77,7 +87,7 @@ def run_pipeline(mode: str = "copilot"):
         executor.dispatch_comment(article, comments)
         db.increment_daily_comment()
 
-    print("\n✅ 流水线本轮扫描处理完毕！")
+    print("\n✅ 本轮巡航扫描与神评生成处理完毕！")
 
 def single_evaluate(url: str):
     config = load_config()
