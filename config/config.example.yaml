@@ -1,0 +1,69 @@
+# 微信公众号评论区自动引流与神评生成系统配置
+
+# 1. 自身公众号定位与引流受众画像
+my_account:
+  name: "你的公众号名称"
+  domain_tags:
+    - "AI人工智能"
+    - "自动化效率工具"
+    - "副业成长与商业变现"
+  target_audience_description: "对前沿AI应用、自动化脚本、工作流提效、独立开发以及自媒体创业感兴趣的年轻人和知识工作者。"
+  tone_style: "专业严谨、洞见深刻、兼具幽默金句感，绝不发硬广"
+
+# 2. 对标监控大号列表 (在这些公众号发文时第一时间响应)
+monitored_accounts:
+  - name: "对标大号A"
+    biz_id: "MzI1XXXXXX=="
+    priority: "high"
+  - name: "行业前沿快讯"
+    biz_id: "MzA4XXXXXX=="
+    priority: "medium"
+
+# 3. 监控与筛选阈值设置
+evaluation_rules:
+  # 受众重叠度最低得分 (0 - 100)
+  min_audience_relevance_score: 70
+  # 最小预估热度门槛
+  min_estimated_heat: "medium"
+  # 允许发表评论的最大发布延迟（分钟，超过30分钟的文章不建议再去抢前排评论）
+  max_publish_delay_minutes: 30
+  # 必须包含的行业相关关键词 (任意命中其一)
+  required_keywords:
+    - "AI"
+    - "自动化"
+    - "工具"
+    - "大模型"
+    - "效率"
+    - "创业"
+  # 过滤黑名单关键词 (若文章包含以下词汇则直接跳过，避免敏感与争议)
+  blacklist_keywords:
+    - "政治"
+    - "维权"
+    - "医疗事故"
+    - "投资暴富"
+
+# 4. LLM 留言生成模型配置
+llm:
+  provider: "openai" # 支持 openai, deepseek, moonshot 等兼容接口
+  base_url: "https://api.deepseek.com/v1" # 或 https://api.openai.com/v1
+  api_key: "sk-xxxxxxxxxxxxxxxxxxxxxxxx"
+  model: "deepseek-chat" # 或 gpt-4o, gpt-4o-mini
+  temperature: 0.7
+  # 一次性生成的候选神评数量供挑选
+  candidate_count: 3
+
+# 5. 执行模式设置
+execution:
+  # 可选模式: "copilot" (推荐：半自动推送到飞书/企微审核), "auto_adb" (安卓ADB全自动), "dry_run" (仅测试生成不提交)
+  mode: "copilot"
+  
+  # 每日最大留言上限 (严格防风控)
+  max_daily_comments: 15
+  # 两次留言之间的最小随机冷却时间（秒）
+  min_interval_seconds: 180
+
+# 6. 通知渠道 (用于 Copilot 模式将候选神评推送到移动端一键复制或审核)
+notifications:
+  feishu_webhook: "https://open.feishu.cn/open-apis/bot/v2/hook/xxxxxx"
+  wechat_work_webhook: ""
+  serverchan_sendkey: ""
