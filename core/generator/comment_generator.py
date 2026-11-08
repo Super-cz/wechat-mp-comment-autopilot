@@ -24,7 +24,7 @@ class CommentGenerator:
 
     def generate_comments(self, article: Dict[str, Any]) -> List[Dict[str, str]]:
         """
-        根据文章内容生成多套策略的候选神评
+        根据文章内容生成一级评论的多策略候选神评 (争夺精选)
         """
         title = article.get("title", "")
         digest = article.get("digest", "")
@@ -43,6 +43,9 @@ class CommentGenerator:
         strategies = self.prompts.get("strategies", {})
 
         for strat_key, strat_val in strategies.items():
+            if strat_val.get("type") == "second_level":
+                continue # 二级跟评走专门接口
+
             strat_name = strat_val.get("name", strat_key)
             strat_prompt = strat_val.get("prompt", "")
 
@@ -54,49 +57,65 @@ class CommentGenerator:
                 f"请直接输出符合要求的 1 条评论内容，字数在 50~120 字之间，不要包含任何前缀或解释性说明："
             )
 
-            try:
-                # 如果没有真实 key，生成高质量 mock 示例便于测试
-                if not self.llm_cfg.get("api_key") or "xxxx" in self.llm_cfg.get("api_key"):
-                    mock_comment = self._generate_mock_comment(strat_key, title)
-                    results.append({
-                        "strategy": strat_key,
-                        "strategy_name": strat_name,
-                        "content": mock_comment,
-                    })
-                    continue
-
-                response = self.client.chat.completions.create(
-                    model=self.model,
-                    messages=[
-                        {"role": "system", "content": self.prompts.get("system_prompt", "")},
-                        {"role": "user", "content": user_instruction},
-                    ],
-                    temperature=self.temperature,
-                    max_tokens=300,
-                )
-                comment_text = response.choices[0].message.content.strip()
-                # 剔除可能存在的双引号包裹
-                if comment_text.startswith('"') and comment_text.endswith('"'):
-                    comment_text = comment_text[1:-1]
-
-                results.append({
-                    "strategy": strat_key,
-                    "strategy_name": strat_name,
-                    "content": comment_text,
-                })
-            except Exception as e:
-                results.append({
-                    "strategy": strat_key,
-                    "strategy_name": strat_name,
-                    "content": f"[生成异常: {e}]",
-                })
+            results.append(self._invoke_or_mock(strat_key, strat_name, user_instruction, title))
 
         return results
 
-    def _generate_mock_comment(self, strategy: str, title: str) -> str:
+    def generate_second_level_reply(self, article: Dict[str, Any], hot_comment: Dict[str, Any]) -> Dict[str, str]:
+        """
+        针对已被精选的高赞热门留言，生成高情商二级跟评 (免作者审核借势截流)
+        """
+        title = article.get("title", "")
+        comment_author = hot_comment.get("author", "热评读者")
+        comment_text = hot_comment.get("content", "")
+        likes = hot_comment.get("likes", 99)
+
+        strategy_cfg = self.prompts.get("strategies", {}).get("reply_to_hot_comment", {})
+        strat_name = strategy_cfg.get("name", "热门留言神级跟评型")
+        strat_prompt = strategy_cfg.get("prompt", "")
+
+        user_instruction = (
+            f"【我方公众号】：{self.my_account.get('name')}\n"
+            f"【我方赛道与受众】：{self.my_account.get('target_audience_description')}\n\n"
+            f"【原文章标题】：{title}\n"
+            f"【目标精选高赞留言】（已有 {likes} 赞，作者: {comment_author}）：\n"
+            f"“{comment_text}”\n\n"
+            f"【二级跟评策略要求】：\n"
+            f"{strat_prompt}\n\n"
+            f"请直接输出一条对该精选热评的回复内容（字数在 40~100 字之间，幽默或深刻，不要包含任何生硬推广）："
+        )
+
+        return self._invoke_or_mock("reply_to_hot_comment", strat_name, user_instruction, title, is_reply=True)
+
+    def _invoke_or_mock(self, strat_key: str, strat_name: str, instruction: str, title: str, is_reply: bool = False) -> Dict[str, str]:
+        try:
+            if not self.llm_cfg.get("api_key") or "xxxx" in self.llm_cfg.get("api_key"):
+                mock_text = self._generate_mock_reply() if is_reply else self._generate_mock_comment(strat_key)
+                return {"strategy": strat_key, "strategy_name": strat_name, "content": mock_text}
+
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": self.prompts.get("system_prompt", "")},
+                    {"role": "user", "content": instruction},
+                ],
+                temperature=self.temperature,
+                max_tokens=250,
+            )
+            comment_text = response.choices[0].message.content.strip()
+            if comment_text.startswith('"') and comment_text.endswith('"'):
+                comment_text = comment_text[1:-1]
+            return {"strategy": strat_key, "strategy_name": strat_name, "content": comment_text}
+        except Exception as e:
+            return {"strategy": strat_key, "strategy_name": strat_name, "content": f"[生成异常: {e}]"}
+
+    def _generate_mock_comment(self, strategy: str) -> str:
         if strategy == "insight_supplement":
-            return f"文中提到的痛点确实是行业常态。我们在实操中还发现一个关键杠杆：把高频重复环节模块化之后，交付效率至少能翻两倍。作者在文中梳理的框架很扎实，值得收藏复盘！"
+            return "文中提到的痛点确实是行业常态。我们在实操中还发现一个关键杠杆：把高频重复环节模块化之后，交付效率至少能翻两倍。作者梳理的框架很扎实，值得收藏复盘！"
         elif strategy == "golden_quote_summary":
-            return f"信息差的本质是行动力差，工具差的本质是认知差。与其焦虑技术迭代，不如把最基础的业务闭环打磨扎实。一语中的的好文！"
+            return "信息差的本质是行动力差，工具差的本质是认知差。与其焦虑技术迭代，不如把最基础的业务闭环打磨扎实。一语中的的好文！"
         else:
-            return f"深度认同作者关于长期复利的判断。不过在落地前期的冷启动阶段，大家普遍遇到的最大卡点往往是资源匹配，不知各位同行在这个阶段都是怎么破局的？"
+            return "深度认同作者关于长期复利的判断。不过在落地前期的冷启动阶段，大家普遍遇到的最大卡点往往是资源匹配，不知各位同行在这个阶段都是怎么破局的？"
+
+    def _generate_mock_reply(self) -> str:
+        return "层主这句话直接说到了心坎里！很多时候大家不是缺方法，而是卡在第一步的执行惯性上。顺着层主的思路，如果能配合现成的模板工具，起步阻力会小一大半。"

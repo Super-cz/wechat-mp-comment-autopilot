@@ -96,11 +96,11 @@ def single_evaluate(url: str):
 
     print(f"🔍 正在测试单篇文章评估与神评生成: {url}")
     mock_article = {
-        "title": "测试文章：如何利用自动化工作流搭建高粘性私域流量池",
+        "title": "测试文章：如何利用AI智能体与自动化工具搭建高粘性私域流量池与创业副业",
         "url": url,
         "account_name": "实战干货实验室",
-        "digest": "本文深入分享利用AI智能体与自动化工具做公众号流量增长的底层逻辑与全套SOP...",
-        "content": "在当今注意力稀缺的时代，单靠手工搬运和被动等待已经很难获得流量爆发。本文探讨如何用自动化工作流打通公域截流到私域沉淀...",
+        "digest": "本文深入分享利用AI大模型与自动化工具做公众号流量增长的底层逻辑与全套SOP...",
+        "content": "在当今注意力稀缺的时代，单靠手工搬运和被动等待已经很难获得流量爆发。本文探讨如何用AI自动化工作流打通公域截流到私域沉淀，提升效率与商业变现...",
         "read_count": 8200,
         "comment_count": 35
     }
@@ -109,9 +109,20 @@ def single_evaluate(url: str):
 
     if passed:
         comments = generator.generate_comments(mock_article)
-        print("\n💡 生成神评结果:")
+        print("\n💡 【模式一】生成一级候选神评 (争夺精选/置顶):")
         for idx, c in enumerate(comments, 1):
             print(f"{idx}. [{c['strategy_name']}]: {c['content']}\n")
+
+        # 模拟展示二级免审跟评能力
+        mock_hot_comment = {
+            "author": "创业老兵",
+            "content": "现在做公域流量转化确实太卷了，前期的冷启动成本越来越高，如果团队没有技术底子，很难跑通自动化流程。",
+            "likes": 128
+        }
+        reply = generator.generate_second_level_reply(mock_article, mock_hot_comment)
+        print("⚡ 【模式二】生成二级高赞留言跟评 (免作者审核，借势截流):")
+        print(f"原热评: “{mock_hot_comment['content']}” (👍 {mock_hot_comment['likes']})")
+        print(f"推荐回复: {reply['content']}\n")
 
 def main():
     parser = argparse.ArgumentParser(description="微信公众号评论区自动引流与神评生成系统")

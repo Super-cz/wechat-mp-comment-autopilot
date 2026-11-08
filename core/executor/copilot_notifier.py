@@ -5,7 +5,7 @@ from .base_executor import BaseExecutor
 class CopilotNotifier(BaseExecutor):
     """
     智能副驾巡航模式：
-    将高质量候选神评及文章直达链接推送到企业微信或飞书群，
+    将高质量候选神评（一级精选争夺 或 二级热评借势跟评）及文章直达链接推送到企业微信或飞书群，
     运营人员在手机上一键点击文章链接，长按复制神评即可在微信内完成留言。
     【优点】：0 封号风险，100% 走官方客户端合规流程，人机协同精选率最高。
     """
@@ -37,6 +37,20 @@ class CopilotNotifier(BaseExecutor):
             except Exception as e:
                 print(f"⚠️ 飞书推送失败: {e}")
 
+        return True
+
+    def dispatch_second_level_reply(self, article: Dict[str, Any], hot_comment: Dict[str, Any], reply: Dict[str, str]) -> bool:
+        title = article.get("title", "")
+        url = article.get("url", "")
+        target_author = hot_comment.get("author", "热评读者")
+        target_text = hot_comment.get("content", "")
+
+        print(f"\n[Copilot Notification] ⚡ 发现已精选高赞热评 (免审跟评机会)！")
+        print(f"📖 文章: {title}")
+        print(f"💬 目标高赞留言 (作者: {target_author}): “{target_text}”")
+        print(f"💡 推荐神级跟评:")
+        print(f"   \"{reply.get('content')}\"")
+        print(f"🔗 文章直达: {url}")
         return True
 
     def _build_feishu_card(self, article: Dict[str, Any], comments: List[Dict[str, str]]) -> Dict[str, Any]:
